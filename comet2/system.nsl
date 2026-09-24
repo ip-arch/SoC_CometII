@@ -1,0 +1,88 @@
+#include "comet2.h"
+#include "comet2.nsl"
+#ifndef MEMFILE
+	#define MEMFILE "comet2.mem"
+#endif
+
+#define MAXSIM		2000
+
+declare system simulation {}
+
+declare ram interface {
+	input adrs[16];
+	input datai[16];
+	output datao[16];
+	func_in read(adrs) : datao;
+	func_in write(adrs, datai);
+	func_in dump();
+	input m_clock, p_reset;
+}
+
+module ram {
+	mem mcell[65536][16];
+	reg datar[16];
+	integer i;
+	datar := mcell[adrs];
+	func read datao = datar;
+	func write mcell[adrs] := datai;
+	func dump {
+		generate(i=0;i<32;i++) {
+			_display("%04X: %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X",
+			i<<4,
+			mcell[(i<<4) + 0],
+			mcell[(i<<4) + 1],
+			mcell[(i<<4) + 2],
+			mcell[(i<<4) + 3],
+			mcell[(i<<4) + 4],
+			mcell[(i<<4) + 5],
+			mcell[(i<<4) + 6],
+			mcell[(i<<4) + 7],
+			mcell[(i<<4) + 8],
+			mcell[(i<<4) + 9],
+			mcell[(i<<4) + 10],
+			mcell[(i<<4) + 11],
+			mcell[(i<<4) + 12],
+			mcell[(i<<4) + 13],
+			mcell[(i<<4) + 14],
+			mcell[(i<<4) + 15]);
+		}
+	}
+
+	_readmemh(MEMFILE,mcell);
+}
+
+module system {
+	ram mem1;
+	reg clocks[20]=0;
+	comet2 cpu;
+	proc_name upclock();
+
+	mem1.m_clock = ~m_clock;
+	mem1.p_reset = p_reset;
+
+
+	func cpu.memory_read return mem1.read(cpu.adrs);
+	func	cpu.memory_write mem1.write(cpu.adrs,cpu.datao);
+
+	func cpu.hlt seq {
+		_display("CPU HALT at %d", clocks);
+		mem1.dump();
+		_finish();
+	}
+
+	proc upclock {
+		clocks++;
+		if(clocks>MAXSIM) {finish(); _finish();}
+	}
+	_init {
+		;
+		;
+		cpu.start();
+		;
+		clocks := 0;
+		{upclock(); }
+		_delay(50);
+		cpu.ext_int();
+	}
+
+}

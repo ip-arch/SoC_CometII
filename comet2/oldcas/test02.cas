@@ -1,0 +1,124 @@
+test	start	main
+res	ds	1
+errres	ds	1
+error	st	gr7,errres
+	hlt
+main	lad	gr15,stackend
+	lad	gr14,itable
+;
+	lad	gr7,#0001  ; Overflow test for SUBA
+	ld	gr0,=#ffff
+	ld	gr1,=#7fff
+	suba	gr1,gr0
+	st	gr1,res
+	jze	error
+	jpl	error
+	jov	m1
+	jump	error
+m1
+	cpl	gr1,=#8000
+	jnz	error
+;
+	lad	gr7,#0002  ; Overflow test for ADDA
+	adda	gr1,gr0
+	st	gr1,res
+	jze	error
+	jmi	error
+	jov	m2
+	jump	error
+m2
+	cpl	gr1,=#7fff
+	jnz	error
+;
+	lad	gr7,#0003  ; Overflow test for SUBL
+	subl	gr1,gr0
+	st	gr1,res
+	jze	error
+	jpl	error
+	jov	m3
+	jump	error
+m3
+	cpl	gr1,=#8000
+	jnz	error
+;
+	lad	gr7,#0004  ; Overflow test for ADDL
+	addl	gr1,gr0
+	st	gr1,res
+	jze	error
+	jmi	error
+	jov	m4
+	jump	error
+m4
+	cpl	gr1,=#7fff
+	jnz	error
+;
+	lad	gr7,#0005  ; non Overflow test for SUBL
+	ld	gr0,=#ffff
+	ld	gr1,=#ffff
+	subl	gr1,gr0
+	st	gr1,res
+	jnz	error
+	jmi	error
+	jpl	error
+	jov	error
+	cpl	gr1,=#0000
+	jnz	error
+;
+	lad	gr7,#0006  ; non Overflow test for ADDL
+	addl	gr1,gr0
+	st	gr1,res
+	jze	error
+	jpl	error
+	jov	error
+	cpl	gr1,=#ffff
+	jnz	error
+;
+	lad	gr7,#0007  ; non Overflow test for SUBA
+	suba	gr1,gr0
+	st	gr1,res
+	jnz	error
+	jpl	error
+	jov	error
+	cpl	gr1,=#0000
+	jnz	error
+;
+	lad	gr7,#0008  ; non Overflow test for ADDA
+	adda	gr1,gr0
+	st	gr1,res
+	jze	error
+	jpl	error
+	jov	error
+	cpl	gr1,=#ffff
+	jnz	error
+	
+;
+	lad	gr7,#0009  ; Overflow test for CPA
+	ld	gr0,=#8000
+	ld	gr1,=1
+	cpa	gr1,gr0
+	st	gr1,res
+	jze	error
+	jmi	error
+	jov	error
+	cpl	gr1,=1
+	jnz	error
+;
+	lad	gr7,#000a  ; non Overflow test for CPL
+	cpl	gr1,gr0
+	st	gr1,res
+	jze	error
+	jpl	error
+	jov	error
+	cpl	gr1,=1
+	jnz	error
+	
+	hlt
+	ret
+itable	ds	1
+	dc	svcin
+	dc	svcout
+svcin	reti
+svcout	reti
+	ds	10
+stackend
+	end

@@ -1,0 +1,180 @@
+test	start	main
+res	ds	1
+errres	ds	1
+error	st	gr7,errres
+	hlt
+main	lad	gr15,stackend
+	lad	gr14,itable
+	ld	gr0,=#aaaa
+	ld	gr1,=#5555
+	ld	gr2,=#00aa
+	ld	gr3,=#aa00
+	ld	gr4,=#0055
+	ld	gr5,=#5500
+;
+	lad	gr7,#0001  ;
+	ld	gr6,gr0
+	sla	gr6,1
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#d554
+	jnz	error
+	
+;
+	lad	gr7,#0002  ;
+	ld	gr6,gr0
+	sll	gr6,1
+	jov	m1
+	jump	error
+m1
+	st	gr6,res
+	cpl	gr6,=#5554
+	jnz	error
+	
+;
+	lad	gr7,#0003  ;
+	ld	gr6,gr0
+	sra	gr6,1
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#d555
+	jnz	error
+	
+;
+	lad	gr7,#0004  ;
+	ld	gr6,gr0
+	srl	gr6,1
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#5555
+	jnz	error
+	
+;
+	lad	gr7,#0005  ;
+	ld	gr6,gr1
+	sla	gr6,1
+	jov	m2
+	jump	error
+m2
+	st	gr6,res
+	cpl	gr6,=#2aaa
+	jnz	error
+	
+;
+	lad	gr7,#0006  ;
+	ld	gr6,gr1
+	sll	gr6,1
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#aaaa
+	jnz	error
+	
+;
+	lad	gr7,#0007  ;
+	ld	gr6,gr1
+	sra	gr6,1
+	jov	m3
+	jump	error
+m3
+	st	gr6,res
+	cpl	gr6,=#2aaa
+	jnz	error
+	
+;
+	lad	gr7,#0008  ;
+	ld	gr6,gr1
+	srl	gr6,1
+	jov	m4
+	jump	error
+m4
+	st	gr6,res
+	cpl	gr6,=#2aaa
+	jnz	error
+	
+;
+	lad	gr7,#0009  ;
+	ld	gr6,gr2
+	sla	gr6,8
+	jov	m5
+	jump	error
+m5
+	st	gr6,res
+	cpl	gr6,=#2a00
+	jnz	error
+	
+;
+	lad	gr7,#000a  ;
+	ld	gr6,gr2
+	sll	gr6,8
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#aa00
+	jnz	error
+	
+;
+	lad	gr7,#000b  ;
+	ld	gr6,gr3
+	sra	gr6,8
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#ffaa
+	jnz	error
+	
+;
+	lad	gr7,#000c  ;
+	ld	gr6,gr3
+	srl	gr6,8
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#00aa
+	jnz	error
+	
+;
+	lad	gr7,#000d  ;
+	ld	gr6,gr5
+	sra	gr6,8
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#0055
+	jnz	error
+	
+;
+	lad	gr7,#000e  ;
+	ld	gr6,gr5
+	srl	gr6,8
+	jov	error
+	st	gr6,res
+	cpl	gr6,=#0055
+	jnz	error
+	
+;
+	lad	gr7,#000f  ;
+	ld	gr6,gr5
+	sra	gr6,9
+	jov	m6
+	jump	error
+m6
+	st	gr6,res
+	cpl	gr6,=#002a
+	jnz	error
+	
+;
+	lad	gr7,#0010  ;
+	ld	gr6,gr5
+	srl	gr6,9
+	jov	m7
+	jump	error
+m7
+	st	gr6,res
+	cpl	gr6,=#002a
+	jnz	error
+	
+	hlt
+itable	ds	1
+	dc	svcin
+	dc	svcout
+svcin	reti
+svcout	reti
+	ds	10
+stackend
+	end

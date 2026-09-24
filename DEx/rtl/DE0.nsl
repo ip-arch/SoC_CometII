@@ -1,0 +1,92 @@
+/*******************************************************************************
+*DE0 : SoC exercise material for CFS 2013
+* CLOCK_50 must be connected to m_clock
+********************************************************************************
+* 2014.03.18  Adopted to PS/2 and timer
+* 2013.07.09  Initial version  by Y. Okuyama
+*******************************************************************************/
+
+#include "DE2_115.nsl"
+
+declare DE0 {
+////////////////////////	Push Button		////////////////////////
+input	BUTTON[3]	;					//	Pushbutton[2:0]
+////////////////////////	DPDT Switch		////////////////////////
+input	SW[10]	;						//	Toggle Switch[9:0]
+////////////////////////	7-SEG Dispaly	////////////////////////
+output	HEX0_D[7];					//	Seven Segment Digit 0
+output	HEX0_DP;				//	Seven Segment Digit DP 0
+output	HEX1_D[7];					//	Seven Segment Digit 1
+output	HEX1_DP;				//	Seven Segment Digit DP 1
+output	HEX2_D[7];					//	Seven Segment Digit 2
+output	HEX2_DP;				//	Seven Segment Digit DP 2
+output	HEX3_D[7];					//	Seven Segment Digit 3
+output	HEX3_DP;				//	Seven Segment Digit DP 3
+////////////////////////////	LED		////////////////////////////
+output	LEDG[10];					//	LED Green[9:0]
+////////////////////////////	UART	////////////////////////////
+output	UART_TXD;				//	UART Transmitter
+input	UART_RXD;				//	UART Receiver
+output	UART_CTS;				//	UART Clear To Send
+input	UART_RTS;				//	UART Request To Send
+////////////////////	LCD Module 16X2	////////////////////////////
+inout	LCD_DATA[8];				//	LCD Data bus 8 bits
+output			LCD_BLON;				//	LCD Back Light ON/OFF
+output			LCD_RW;					//	LCD Read/Write Select, 0 = Write, 1 = Read
+output			LCD_EN;					//	LCD Enable
+output			LCD_RS;					//	LCD Command/Data Select, 0 = Command, 1 = Data
+////////////////////////	PS2		////////////////////////////////
+inout		 	PS2_KBDAT;				//	PS2 Keyboard Data
+inout			PS2_KBCLK;				//	PS2 Keyboard Clock
+inout		 	PS2_MSDAT;				//	PS2 Mouse Data
+inout			PS2_MSCLK;				//	PS2 Mouse Clock
+////////////////////////	VGA			////////////////////////////
+output			VGA_HS;					//	VGA H_SYNC
+output			VGA_VS;					//	VGA V_SYNC
+output			VGA_R[4];   				//	VGA Red[3:0]
+output			VGA_G[4];	 			//	VGA Green[3:0]
+output			VGA_B[4];   				//	VGA Blue[3:0]
+
+}
+
+module DE0 {
+
+/**********************************************
+* Module decralations
+**********************************************/
+	DE2_115 		de2bd;
+
+   de2bd.KEY = 4'(BUTTON)	;			//	Pushbutton[2:0]
+////////////////////////	DPDT Switch		////////////////////////
+   de2bd.SW = 18'SW;                         	//   Toggle Switch[17:0]
+////////////////////////	7-SEG Dispaly	////////////////////////
+   HEX0_D = de2bd.HEX0;                       	//   Seven Segment Digit 0
+   HEX1_D = de2bd.HEX1;                       	//   Seven Segment Digit 0
+   HEX2_D = de2bd.HEX2;                       	//   Seven Segment Digit 0
+   HEX3_D = de2bd.HEX3;                       	//   Seven Segment Digit 0
+////////////////////////////	LED		////////////////////////////
+   LEDG = 10'de2bd.LEDG;                        	//   LED Green[8:0]
+////////////////////////////	UART	////////////////////////////
+//output	UART_TXD;				//	UART Transmitter
+//input	UART_RXD;				//	UART Receiver
+//output	UART_CTS;				//	UART Clear To Send
+//input	UART_RTS;				//	UART Request To Send
+////////////////////	LCD Module 16X2	////////////////////////////
+   if(~de2bd.LCD_RW)  LCD_DATA=de2bd.LCD_DATA;                    	//   LCD Data bus 8 bits
+   else  de2bd.LCD_DATA=LCD_DATA;
+   LCD_BLON = de2bd.LCD_BLON;				//	LCD Back Light ON/OFF
+   LCD_RW = de2bd.LCD_RW;					//	LCD Read/Write Select, 0 = Write, 1 = Read
+   LCD_EN = de2bd.LCD_EN;					//	LCD Enable
+   LCD_RS = de2bd.LCD_RS;					//	LCD Command/Data Select, 0 = Command, 1 = Data
+////////////////////////	PS2		////////////////////////////////
+   de2bd.PS2_CLK = PS2_KBDAT;				//	PS2 Keyboard Data
+   de2bd.PS2_DAT = PS2_KBCLK;				//	PS2 Keyboard Clock
+   de2bd.PS2_CLK2 = PS2_MSDAT;				//	PS2 Mouse Data
+   de2bd.PS2_DAT2 = PS2_MSCLK;				//	PS2 Mouse Clock
+////////////////////////	VGA			////////////////////////////
+   VGA_HS = de2bd.VGA_HS;					//	VGA H_SYNC
+   VGA_VS = de2bd.VGA_HS;					//	VGA H_SYNC
+   VGA_R = de2bd.VGA_R[9:6];   				//	VGA Red[3:0]
+   VGA_G = de2bd.VGA_G[9:6];   				//	VGA Red[3:0]
+   VGA_B = de2bd.VGA_B[9:6];   				//	VGA Red[3:0]
+}

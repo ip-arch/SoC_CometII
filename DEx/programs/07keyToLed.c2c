@@ -1,0 +1,20 @@
+var KEY  = 0xA000;
+var LED  = 0xA003;
+var KEY0 = 0x0001; // cannot use
+var KEY1 = 0x0002;
+var KEY2 = 0x0004;
+var KEY3 = 0x0008; // not implemented on DE0
+
+main()
+{
+  var flag;
+  while(1) {
+    flag=0;
+    if ((*KEY & KEY2)==0) flag= 0xf0 | flag; 
+    if ((*KEY & KEY1)==0) flag= 0x0f | flag;
+    *LED=flag;
+  }
+  halt;
+}
+
+

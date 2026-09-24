@@ -1,0 +1,22 @@
+test	start	main
+res	dc	1
+errres	ds	1
+error	st	gr7,errres
+	hlt
+main	lad	gr15,stackend
+	lad	gr14,itable
+	ld	gr1,=#a001  ; SW address
+	ld	gr2,=#a003  ; Green LED address
+loop	ld	gr0,0,gr1
+	st	gr0,0,gr2
+	jump	loop	
+	hlt
+	ret
+itable	ds	1
+	dc	svcin
+	dc	svcout
+svcin	reti
+svcout	reti
+	ds	256
+stackend
+	end

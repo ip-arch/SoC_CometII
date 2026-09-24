@@ -1,0 +1,22 @@
+test	start	main
+res	ds	1
+errres	ds	1
+error	st	gr7,errres
+	hlt
+main	lad	gr15,stackend
+	lad	gr14,itable
+	in	inbuf,inlen
+	out	outbuf,outlen
+	hlt
+inbuf	ds	256
+outbuf	ds	256
+inlen	dc	1
+outlen	dc	1
+itable	ds	1
+	dc	svcin
+	dc	svcout
+svcin	reti
+svcout	reti
+	ds	10
+stackend
+	end

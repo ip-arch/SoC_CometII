@@ -1,0 +1,20 @@
+var LED = 0xA003;
+
+proc wait()
+{
+  var i,j;
+  for(j=0; j< 0x3; j++)
+    for(i=0; i< 0x7FFF; i++);
+}
+
+main()
+{
+  var c = 0;
+  while(1){
+    wait();
+    *LED=c;
+    c++;
+  }
+  halt;
+}
+

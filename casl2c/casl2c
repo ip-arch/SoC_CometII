@@ -1,0 +1,16 @@
+#!/bin/sh
+
+cmdpath=${0%/*}
+noext=${1%.*}
+ext=${1##*.}
+if [ $ext != "c" ] ; then
+  echo "拡張子が c ではありません"
+  exit 1
+fi
+
+$cmdpath/caslcomp/caslcomp $1 > $noext.cas
+if [ $? -ne 0 ] ; then
+  exit 1
+fi
+$cmdpath/caslasm/caslasm -compiled $noext.cas
+

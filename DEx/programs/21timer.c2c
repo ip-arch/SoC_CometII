@@ -1,0 +1,38 @@
+var LED=0xA003;
+var HEX=0xA008;
+var TIMER        = 0xA100;
+var TIMER_INTREQ = 0x0080;
+var TIMER_LOAD   = 0x0008;
+var TIMER_READ   = 0x0004;
+var TIMER_INTEN  = 0x0002;
+var TIMER_CNTEN  = 0x0001;
+
+var timer;			// added for casl2c (OK?)
+
+
+interrupt foo() {
+  *(TIMER+2)= *(TIMER+2) & ~TIMER_INTREQ;
+  timer++;
+  *HEX=timer;
+  return;
+}
+
+var vec[] = { foo };
+
+main()
+{
+  timer=0;
+  // intrruption vector
+  // *SNX_INTVEC = foo;
+  setVector(vec);		// added for casl2c
+
+  // timer initialization
+  *(TIMER   )= 0xf080;
+  *(TIMER +1)= 0x2fa;
+  *(TIMER +2)= *(TIMER+2) | TIMER_LOAD | TIMER_INTEN | TIMER_CNTEN;
+
+  enableIntr();
+  *HEX=timer;
+  while(1); // do nothing
+  halt;
+}

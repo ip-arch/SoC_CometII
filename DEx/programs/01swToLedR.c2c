@@ -1,0 +1,10 @@
+var SW =0xA001;
+var LED=0xA002;
+
+main()
+{
+  while(1)
+    *LED=*SW;
+  halt;
+}
+

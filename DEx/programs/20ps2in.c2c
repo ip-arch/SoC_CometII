@@ -1,0 +1,11 @@
+var LED = 0xA003;
+var PS2DAT = 0xA004;
+var PS2IN  = 0xA005;
+
+main()
+{
+  while(1)
+    if(*PS2IN) *LED=*PS2DAT;
+
+  halt;
+}

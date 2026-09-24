@@ -1,0 +1,25 @@
+VGA     = 0xC000;
+COLOR   = 0xF000;
+VGACLS  = 0x0FEC;
+
+int msg[32];
+msg[ 0]=0x48; msg[ 1]=0x65; msg[ 2]=0x6C; msg[ 3]=0x6C;
+msg[ 4]=0x6F; msg[ 5]=0x20; msg[ 6]=0x20; msg[ 7]=0x20;
+msg[ 8]=0x20; msg[ 9]=0x20; msg[10]=0x20; msg[11]=0x20;
+msg[12]=0x20; msg[13]=0x20; msg[14]=0x20; msg[15]=0x20;
+
+msg[16]=0x20; msg[17]=0x20; msg[18]=0x20; msg[19]=0x20;
+msg[20]=0x20; msg[21]=0x48; msg[22]=0x6F; msg[23]=0x67;
+msg[24]=0x65; msg[25]=0x6E; msg[26]=0x69; msg[27]=0x6D;
+msg[28]=0x75; msg[29]=0x73; msg[30]=0x68; msg[31]=0x69;
+
+void vgaCls() {
+	*(VGA|VGACLS) = COLOR;
+	while (*(VGA|VGACLS));
+}
+
+vgaCls();
+for(i=0;i<16;i++) *(VGA+i)    = msg[i   ] | COLOR;
+for(i=0;i<16;i++) *(VGA+i+128)= msg[i+16] | COLOR;
+halt;
+

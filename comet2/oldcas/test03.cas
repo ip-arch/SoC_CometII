@@ -1,0 +1,88 @@
+test	start	main
+res	ds	1
+errres	ds	1
+error	st	gr7,errres
+	hlt
+main	lad	gr15,stackend
+	lad	gr14,itable
+	ld	gr0,=1
+	lad	gr1,2
+	lad	gr2,1,gr1
+	lad	gr3,1,gr2
+	lad	gr4,1,gr3
+	lad	gr5,1,gr4
+	lad	gr6,1,gr5
+;
+	lad	gr7,#0001  ; gr0 will not affect
+	push	1
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,=1
+	jnz	error
+;
+	lad	gr7,#0002  ; 
+	push	1,gr1
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,gr2
+	jnz	error
+;
+	lad	gr7,#0003  ; 
+	push	1,gr2
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,gr3
+	jnz	error
+;
+	lad	gr7,#0004  ; 
+	push	1,gr3
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,gr4
+	jnz	error
+;
+	lad	gr7,#0005  ; 
+	push	1,gr4
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,gr5
+	jnz	error
+;
+	lad	gr7,#0006  ; 
+	push	1,gr5
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,gr6
+	jnz	error
+;
+	lad	gr7,#0007  ; 
+	push	1,gr6
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,=8
+	jnz	error
+;
+	lad	gr7,#0008  ; 
+	push	1,gr7
+	pop	gr0
+	st	gr0,res
+	cpl	gr0,=9
+	jnz	error
+;
+	lad	gr7,#0009  ; 
+	lad	gr0,#aa55
+	call	calltest
+	cpl	gr0,=#55aa
+	jnz	error
+	hlt
+calltest
+	xor	gr0,=#ffff
+	ret
+itable	ds	1
+	dc	svcin
+	dc	svcout
+svcin	reti
+svcout	reti
+	ds	10
+stackend
+	end

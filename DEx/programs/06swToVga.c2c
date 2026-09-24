@@ -1,0 +1,27 @@
+var VGA     = 0xC000;
+var SW      = 0xA001;
+var COLOR   = 0xF000;
+var VGACLS  = 0x0FEC;
+
+proc vgaGetAdrs(xin, yin)
+{
+  return VGA | ((yin & 0x1F)<<7) | (xin & 0x7F);
+}
+
+proc vgaCls()
+{
+  *(VGA|VGACLS) = COLOR;
+  while (*(VGA|VGACLS));
+}
+
+main()
+{
+  var x, y;
+  vgaCls();
+  while(1)
+    for(y = 0 ; y < 30 ; y++)
+      for(x = 0 ; x < 80 ; x++)
+        *(vgaGetAdrs(x,y))=*SW;
+  halt;
+}
+

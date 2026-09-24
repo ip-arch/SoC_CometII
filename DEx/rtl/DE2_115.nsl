@@ -1,0 +1,238 @@
+/*******************************************************************************
+*DE2-70: SoC exercise material for 17th PARTHENON Workshop
+*Thanks to Dr. Naohiko Shimizu, Dr. Katsunobu Nishimura and my wife, Mina.
+********************************************************************************
+* 2011.09.11,12,13   Initial version  by Y. Okuyama
+* 2013.03.21	     Adopted to snx2013
+* 2014.08.11         Timer and PS/2 by Y.Okuyama
+*******************************************************************************/
+
+#include "comet2.h"
+#include "key.inc"
+#include "sw.inc"
+#include "HEX.inc"
+#include "LED.inc"
+#include "MEM/cmem.inc"
+#include "ps2in.inc"
+#include "timer.inc"
+#include "LCD/LCD_controller.inc"
+#include "VGA/VGA_ctrl.inc"
+
+//---------Address space definition--------
+#define BASE_MEM	16'h0000
+#define SPACE_MEM	13
+#define BASE_KEY	16'hA000
+#define SPACE_KEY	0
+#define BASE_SW		16'hA001
+#define SPACE_SW	0
+#define BASE_LED	16'hA002
+#define SPACE_LED	1
+#define BASE_PS2	16'hA004
+#define SPACE_PS2	1
+#define BASE_HEX	16'hA008
+#define SPACE_HEX	3
+#define BASE_LCD	16'hA020
+#define SPACE_LCD	5
+#define BASE_TIMER	16'hA100
+#define SPACE_TIMER	2
+#define BASE_VGA	16'hC000
+#define SPACE_VGA	12
+
+
+declare DE2_115 {
+   ////////////////////   Push Button       ////////////////////////////////
+   input  KEY[4];                         	//   Pushbutton[3:0]
+   ////////////////////   DPDT Switch       ////////////////////////////////
+   input  SW[18];                         	//   Toggle Switch[17:0]
+   ////////////////////   7-SEG Display     ////////////////////////////////
+   output HEX0[7];                        	//   Seven Segment Digit 0
+   output HEX1[7];                       	//   Seven Segment Digit 1
+   output HEX2[7];                        	//   Seven Segment Digit 2
+   output HEX3[7];                        	//   Seven Segment Digit 3
+   output HEX4[7];                        	//   Seven Segment Digit 4
+   output HEX5[7];                        	//   Seven Segment Digit 5
+   output HEX6[7];                        	//   Seven Segment Digit 6
+   output HEX7[7];                        	//   Seven Segment Digit 7
+   ////////////////////   LED               ////////////////////////////////
+   output LEDG[9];                        	//   LED Green[8:0]
+   output LEDR[18];                       	//   LED Red[17:0]
+   ////////////////////   LCD Module 16X2   ///////////////////////////////
+   inout  LCD_DATA[8];                    	//   LCD Data bus 8 bits
+   output LCD_ON;                           //   LCD Power ON/OFF
+   output LCD_BLON;                         //   LCD Back Light ON/OFF
+   output LCD_RW;                           //   LCD Read/Write Select, 0 = Write, 1 = Read
+   output LCD_EN;                           //   LCD Enable
+   output LCD_RS;                           //   LCD Command/Data Select, 0 = Command, 1 = Data
+
+
+   ////////////////////   PS2              ////////////////////////////////
+   inout PS2_CLK;
+   inout PS2_DAT;
+   inout PS2_CLK2;
+   inout PS2_DAT2;
+   ////////////////////   VGA               ////////////////////////////////
+   output VGA_R[10];
+   output VGA_G[10];
+   output VGA_B[10];
+   output VGA_HS;
+   output VGA_VS;
+   output VGA_SYNC;
+   output VGA_BLANK;
+   output VGA_CLK;
+}
+
+module DE2_115 {
+
+/**********************************************
+* Module decralations
+**********************************************/
+	cmem 			cmem_i;
+	HEX  			hex_i;
+	key  			key_i;
+	LCD_controller	lcd_i;
+	LED			led_i;
+	comet2			comet2_i;
+	sw			sw_i;
+	VGA_ctrl		vga_i;
+	ps2_in			ps2in_i;
+	timer			timer_i;
+	reg	poncount[8] = 0;
+
+
+
+// Address register
+   	reg adrs_reg[16];
+// Internal functions
+	func_self read_dmem();
+	func_self read_hex();
+	func_self read_key();
+	func_self read_lcd();
+	func_self read_led();
+	func_self read_sw();
+	func_self read_vga();
+	func_self read_ps2in();
+	func_self read_timer();
+
+// debug
+	func_self debug0();
+	func_self debug1();
+
+	if(poncount < 0x80) poncount++;
+	if(poncount == 0x7f) comet2_i.start();
+/**********************************************
+* Peripheral settings
+**********************************************/
+//--------Memories--------
+	cmem_i.clock = ~m_clock;
+//--------HEX--------
+	HEX0    = hex_i.HEX0[6:0];
+	HEX1    = hex_i.HEX1[6:0];
+	HEX2    = hex_i.HEX2[6:0];
+	HEX3    = hex_i.HEX3[6:0];
+	HEX4    = hex_i.HEX4[6:0];
+	HEX5    = hex_i.HEX5[6:0];
+	HEX6    = hex_i.HEX6[6:0];
+	HEX7    = hex_i.HEX7[6:0];
+//--------KEY--------
+	key_i.KEY = KEY;
+//--------LCD--------
+	lcd_i.rst = p_reset;
+	lcd_i.cpu_clk = ~m_clock;
+	lcd_i.sys_clk = ~m_clock;
+	LCD_DATA = lcd_i.LCD_DATA;
+	LCD_ON   = 1;
+	LCD_BLON = 0;
+	LCD_RW   = lcd_i.LCD_RW;
+	LCD_EN   = lcd_i.LCD_EN;
+	LCD_RS   = lcd_i.LCD_RS;
+//--------LED--------
+	LEDG	 = led_i.LEDG;
+	LEDR	 = {debug1, debug0, led_i.LEDR};
+//	LEDR	 = {debug1, debug0, comet2_i.adrs};
+//--------SW--------
+	sw_i.SW = SW[15:0];
+//--------PS2 keyboard --------
+ 	ps2in_i.rxd  = PS2_DAT;
+	ps2in_i.rxc  = PS2_CLK;
+
+//--------VGA--------
+	vga_i.m_clock = ~m_clock;
+	vga_i.p_reset = p_reset;
+	VGA_VS    = vga_i.VS;
+	VGA_HS    = vga_i.HS;
+	VGA_CLK   = vga_i.CLOCK;
+	VGA_SYNC  = ~vga_i.SYNC;
+	VGA_BLANK = ~vga_i.BLANK;
+	VGA_R     = { vga_i.R, 0b000000 };
+	VGA_G     = { vga_i.G, 0b000000 };
+	VGA_B     = { vga_i.B, 0b000000 };
+
+	function timer_i.intr comet2_i.ext_int();
+/**********************************************
+* Data-bus read operation
+**********************************************/
+	function comet2_i.memory_read { debug0();
+any{
+		comet2_i.adrs[15:SPACE_MEM] == (BASE_MEM>>SPACE_MEM)[15-SPACE_MEM:0] : read_dmem();
+		comet2_i.adrs[15:SPACE_HEX ] == (BASE_HEX >>SPACE_HEX )[15-SPACE_HEX :0] : read_hex();
+		comet2_i.adrs[15:SPACE_KEY ] == (BASE_KEY >>SPACE_KEY )[15-SPACE_KEY :0] : read_key();
+		comet2_i.adrs[15:SPACE_LCD ] == (BASE_LCD >>SPACE_LCD )[15-SPACE_LCD :0] : read_lcd();
+		comet2_i.adrs[15:SPACE_LED ] == (BASE_LED >>SPACE_LED )[15-SPACE_LED :0] : read_led();
+		comet2_i.adrs[15:SPACE_SW  ] == (BASE_SW  >>SPACE_SW  )[15-SPACE_SW  :0] : read_sw();
+		comet2_i.adrs[15:SPACE_PS2 ] == (BASE_PS2  >>SPACE_PS2  )[15-SPACE_PS2  :0] : read_ps2in();
+		comet2_i.adrs[15:SPACE_TIMER  ] == (BASE_TIMER  >>SPACE_TIMER  )[15-SPACE_TIMER  :0] : read_timer();
+		comet2_i.adrs[15:SPACE_VGA ] == (BASE_VGA >>SPACE_VGA )[15-SPACE_VGA :0] : read_vga();
+	}}
+
+	function read_dmem {
+		 cmem_i.address = comet2_i.adrs[SPACE_MEM-1:0];
+		 comet2_i.datai=cmem_i.q;
+	}
+	function read_hex {
+		 comet2_i.datai = hex_i.read(comet2_i.adrs[SPACE_HEX-1:0]);
+	}
+	function read_key {
+		 comet2_i.datai = key_i.read();
+	}
+	function read_lcd {
+		 lcd_i.adrs=comet2_i.adrs[SPACE_LCD-1:0];
+		 comet2_i.datai = lcd_i.to_cpu;
+		 lcd_i.cs();
+	}
+	function read_led {
+		 comet2_i.datai = led_i.read(comet2_i.adrs[SPACE_LED-1:0]);
+	}
+	function read_sw {
+		 comet2_i.datai = sw_i.read();
+	}
+	function read_ps2in {
+		 comet2_i.datai = if (~comet2_i.adrs[0]) {0x00, ps2in_i.port_read()}
+		 	       else {0x00, ps2in_i.rxready, 7'h00};
+	}
+	function read_timer {
+		 comet2_i.datai = timer_i.read(comet2_i.adrs[SPACE_TIMER-1:0]);
+	}
+	function read_vga {
+		 comet2_i.datai = 16'(vga_i.read(comet2_i.adrs[SPACE_VGA-1:0]).r_data);
+	}
+
+/**********************************************
+* Data-bus write operation
+**********************************************/
+	function comet2_i.memory_write {debug1();
+any{
+		comet2_i.adrs[15:SPACE_MEM] ==(BASE_MEM>>SPACE_MEM)[15-SPACE_MEM:0] :
+					cmem_i.wren(comet2_i.adrs[SPACE_MEM-1:0],comet2_i.datao);
+		comet2_i.adrs[15:SPACE_HEX ] ==(BASE_HEX >>SPACE_HEX )[15-SPACE_HEX :0] :
+					hex_i.write(comet2_i.adrs[SPACE_HEX-1:0], comet2_i.datao);
+		comet2_i.adrs[15:SPACE_LCD ] ==(BASE_LCD >>SPACE_LCD )[15-SPACE_LCD :0] :
+					{lcd_i.we(comet2_i.adrs[SPACE_LCD-1:0], comet2_i.datao);lcd_i.cs();}
+		comet2_i.adrs[15:SPACE_LED ] ==(BASE_LED >>SPACE_LED )[15-SPACE_LED :0] :
+					led_i.write(comet2_i.adrs[SPACE_LED-1:0], comet2_i.datao);
+		comet2_i.adrs[15:SPACE_TIMER] ==(BASE_TIMER >>SPACE_TIMER )[15-SPACE_TIMER :0] :
+					timer_i.write(comet2_i.adrs[SPACE_TIMER-1:0], comet2_i.datao);
+		comet2_i.adrs[15:SPACE_VGA ] ==(BASE_VGA >>SPACE_VGA )[15-SPACE_VGA :0] :
+					vga_i.write(comet2_i.adrs[SPACE_VGA-1:0], comet2_i.datao);
+	}
+}
+}

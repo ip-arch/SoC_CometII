@@ -1,0 +1,20 @@
+var SW =0xA001;
+var HEX=0xA008;
+var arg, hex;
+
+var dec[16] = { 0x40, 0x79, 0x24, 0x30, 0x19, 0x12, 0x02, 0x58,
+                0x00, 0x18, 0x08, 0x03, 0x27, 0x21, 0x06, 0x0e };
+
+proc segDec(input)
+{
+  arg = input;
+  if (input>0xF) return dec[input & 0x0F];
+  else           return dec[input] | 0x80;
+}                               
+
+main()
+{
+  while(1)
+    hex = *HEX = segDec(*SW);
+  halt;
+}

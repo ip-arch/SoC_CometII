@@ -1,0 +1,75 @@
+R"(
+    LD GR14,@@interrupt_vector_base
+    LD GR15,@@stack_top
+
+    LD GR1,@@data_base
+    LD GR2,@@data_section_base
+
+@@loop_start
+    LD GR3,0,GR1
+
+    AND GR3,GR3
+    JZE @@integer_constant
+
+    LAD GR4,1
+    CPL GR3,GR4
+    JZE @@string_constant
+
+    LAD GR4,2
+    CPL GR3,GR4
+    JZE @@allocate
+
+    JUMP @@loop_end
+
+@@integer_constant
+    LAD GR1,1,GR1
+
+    LD GR3,0,GR1
+    ST GR3,0,GR2
+
+    LAD GR1,1,GR1
+    LAD GR2,1,GR2
+
+    JUMP @@loop_start
+
+@@string_constant
+    LAD GR1,1,GR1
+    LD GR3,0,GR1
+
+    LAD GR1,1,GR1
+
+@@string_constant_loop
+    AND GR3,GR3
+    JZE @@loop_start
+
+    LD GR4,0,GR1
+    ST GR4,0,GR2
+
+    LAD GR1,1,GR1
+    LAD GR2,1,GR2
+    LAD GR3,-1,GR3
+
+    JUMP @@string_constant_loop
+
+@@allocate
+    LAD GR1,1,GR1
+    LD GR3,0,GR1
+
+    LAD GR1,1,GR1
+    XOR GR4,GR4
+
+@@allocate_loop
+    AND GR3,GR3
+    JZE @@loop_start
+
+    ST GR4,0,GR2
+
+    LAD GR2,1,GR2
+    LAD GR3,-1,GR3
+
+    JUMP @@allocate_loop
+
+@@loop_end
+    CALL @@start
+    HLT
+)"

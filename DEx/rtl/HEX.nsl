@@ -1,0 +1,54 @@
+/*******************************************************************************
+*HEX: 7-segment LED controller
+********************************************************************************
+* 2011.09.11   Initial version  by Y. Okuyama
+*******************************************************************************/
+
+#include "HEX.inc"
+
+module HEX {
+
+	reg		HEX_i0[8] = 0xFF;
+	reg		HEX_i1[8] = 0xFF;
+	reg		HEX_i2[8] = 0xFF;
+	reg		HEX_i3[8] = 0xFF;
+	reg		HEX_i4[8] = 0xFF;
+	reg		HEX_i5[8] = 0xFF;
+	reg		HEX_i6[8] = 0xFF;
+	reg		HEX_i7[8] = 0xFF;
+
+	function write {
+		any {
+			adrs == 0: HEX_i0 := datai[7:0];
+			adrs == 1: HEX_i1 := datai[7:0];
+			adrs == 2: HEX_i2 := datai[7:0];
+			adrs == 3: HEX_i3 := datai[7:0];
+			adrs == 4: HEX_i4 := datai[7:0];
+			adrs == 5: HEX_i5 := datai[7:0];
+			adrs == 6: HEX_i6 := datai[7:0];
+			adrs == 7: HEX_i7 := datai[7:0];
+		}
+	}
+
+	function read {
+		any {
+			adrs == 0: return 16'(HEX_i0);
+			adrs == 1: return 16'(HEX_i1);
+			adrs == 2: return 16'(HEX_i2);
+			adrs == 3: return 16'(HEX_i3);
+			adrs == 4: return 16'(HEX_i4);
+			adrs == 5: return 16'(HEX_i5);
+			adrs == 6: return 16'(HEX_i6);
+			adrs == 7: return 16'(HEX_i7);
+		}
+	}
+
+	HEX0 = HEX_i0;
+	HEX1 = HEX_i1;
+	HEX2 = HEX_i2;
+	HEX3 = HEX_i3;
+	HEX4 = HEX_i4;
+	HEX5 = HEX_i5;
+	HEX6 = HEX_i6;
+	HEX7 = HEX_i7;
+}

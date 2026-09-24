@@ -1,0 +1,182 @@
+// $Id: VGA_ctrl.nsl,v 1.2 2011-08-23 22:54:42+09 knish Exp $
+
+%i "VGA_ctrl.inc"
+
+module VGA_ctrl {
+
+//output		R[4], G[4], B[4], HS, VS;
+//output		CLOCK, BLANK, SYNC;
+//input			adrs[12], w_data[16];
+//output		r_data[16];
+//func_in		write, read;
+
+RAM2P_16x4K	VRAM;
+ROM_8x4K	CGROM;
+
+reg		F_FLAG		= 0b0;
+reg		F_REG[12];
+reg		PATTERN[16];
+reg		SCROLL[5]	= 0b00000;
+reg		CURSOR_1[12]	= 0xFFF;
+reg		CURSOR_2[12]	= 0x3F0;
+mem		PALETTE[16][12] = {
+			0x000, 0x008, 0x080, 0x088, 0x800, 0x808, 0x880, 0x888,
+			0x444, 0x00F, 0x0F0, 0x0FF, 0xF00, 0xF0F, 0xFF0, 0xFFF
+		};
+
+reg		FREQ;
+reg		H_REG[10], H_BLANK, H_SYNC;
+reg		V_REG[10], V_BLANK, V_SYNC;
+
+reg		B_REG[5];
+reg		S_REG[8];
+reg		ADRS[12];
+reg		LINE[4];
+reg		COLOR[8];
+wire		dot;
+wire		color[8];
+
+func_self	fill;
+func_self	h_count;
+func_self	v_count;
+func_self	b_count;
+
+////////////////////////////////////////
+
+// 0x000 - 0xFEB : Video RAM
+// 0xFEC         : PATTERN register / fill command
+// 0xFED         : SCROLL register
+// 0xFEE         : CURSOR register 1 - position
+// 0xFEF         : CURSOR register 2 - shape & color
+// 0xFF0 - 0xFFF : PALETTE register
+
+func write {
+	any {
+	adrs[11:0] == 0b111111101100:	{ PATTERN := w_data; fill(); }
+	adrs[11:0] == 0b111111101101:	SCROLL   := w_data[4:0];
+	adrs[11:0] == 0b111111101110:	CURSOR_1 := w_data[11:0];
+	adrs[11:0] == 0b111111101111:	CURSOR_2 := w_data[11:0];
+	adrs[11:4] == 0b11111111:	PALETTE[adrs[3:0]] := w_data[11:0];
+	}
+	if (~F_FLAG) {
+		VRAM.wren_a();
+	}
+}
+
+func read {
+	any {
+	adrs[11:0] == 0b111111101100:	r_data = 16'(F_FLAG);
+	adrs[11:0] == 0b111111101101:	r_data = 16'(SCROLL);
+	adrs[11:0] == 0b111111101110:	r_data = 16'(CURSOR_1);
+	adrs[11:0] == 0b111111101111:	r_data = 16'(CURSOR_2);
+	adrs[11:4] == 0b11111111:	r_data = 16'(PALETTE[adrs[3:0]]);
+	else:				r_data = VRAM.q_a;
+	}
+}
+
+func fill {
+	if (~F_FLAG) {
+		F_FLAG := 0b1;
+		F_REG  := 0x000;
+	} else if (F_REG == 0xFE0) {
+		F_FLAG := 0b0;
+	} else {
+		F_REG  := F_REG + 1;
+		VRAM.wren_a();
+	}
+}
+
+////////////////////////////////////////
+
+VRAM.clock  = m_clock;
+CGROM.clock = m_clock;
+
+if (~F_FLAG) {
+	VRAM.address_a = adrs;
+	VRAM.data_a    = w_data;
+} else {
+	VRAM.address_a = F_REG;
+	VRAM.data_a    = PATTERN;
+	fill();
+}
+
+VRAM.address_b = {5'(V_REG[8:4]+SCROLL) , H_REG[9:3]};
+CGROM.address = {VRAM.q_b[7:0] , V_REG[3:0]};
+
+FREQ := ~FREQ;				// 50MHz / 2
+if (FREQ) {
+	h_count();
+	if (H_REG[2:0] == 0b111) {
+		S_REG := CGROM.q;
+		ADRS  := {V_REG[8:4] , H_REG[9:3]};
+		LINE  := V_REG[3:0];
+		COLOR := VRAM.q_b[15:8];
+	} else {
+		S_REG := {S_REG[6:0] , 0b0};
+	}
+}
+
+if ((CURSOR_1 == ADRS) & (&(CURSOR_2[11:8] | LINE)) & B_REG[4]) {
+	dot   = ~S_REG[7];
+	color = CURSOR_2[7:0];
+} else {
+	dot   = S_REG[7];
+	color = COLOR;
+}
+
+if (H_BLANK | V_BLANK) {		// blank
+	R = 0b0000;
+	G = 0b0000;
+	B = 0b0000;
+} else if (dot) {			// foreground
+	R = PALETTE[color[7:4]][11:8];
+	G = PALETTE[color[7:4]][7:4];
+	B = PALETTE[color[7:4]][3:0];
+} else {				// background
+	R = PALETTE[color[3:0]][11:8];
+	G = PALETTE[color[3:0]][7:4];
+	B = PALETTE[color[3:0]][3:0];
+}
+
+HS = H_SYNC;
+VS = V_SYNC;
+CLOCK = FREQ;
+BLANK = H_BLANK | V_BLANK;
+SYNC  = H_SYNC  | V_SYNC;
+
+////////////////////////////////////////
+
+// Horizontal Counter
+func h_count {
+	any {
+	H_REG == 799:	{ H_REG := 0; v_count(); }
+	else:		{ H_REG := H_REG + 1; }
+	}
+	any {
+	H_REG == 647:	H_BLANK := 1;	// active time : 640
+	H_REG == 663:	H_SYNC  := 1;	// front porch : 16
+	H_REG == 759:	H_SYNC  := 0;	// sync pluse  : 96
+	H_REG == 7:	H_BLANK := 0;	// back porch  : 48
+	}
+}
+
+// Vertical Counter
+func v_count {
+	any {
+	V_REG == 524:	{ V_REG := 0; b_count(); }
+	else:		{ V_REG := V_REG + 1; }
+	}
+	any {
+	V_REG == 479:	V_BLANK := 1;	// active time : 480
+	V_REG == 489:	V_SYNC  := 1;	// front porch : 10
+	V_REG == 491:	V_SYNC  := 0;	// sync pluse  : 2
+	V_REG == 524:	V_BLANK := 0;	// back porch  : 33
+	}
+}
+
+// Blink Counter
+func b_count {
+	B_REG := B_REG + 1;
+}
+
+}

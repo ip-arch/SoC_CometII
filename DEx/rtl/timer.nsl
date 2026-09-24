@@ -1,0 +1,52 @@
+// 2014/03/11  Shimizu and Okuyama
+
+#include "timer.inc"
+
+module timer {
+       
+         reg cnt[32];
+	 reg intreg0[16];
+	 reg intreg1[16];
+
+
+	 reg int_en=0;
+	 reg cnt_en=0;
+	 reg int_req=0;
+	 reg writeflg=0;
+
+	 func_self cnt_ld();
+	 func_self cnt_rd();
+
+	 
+// cyclic counter
+//	 {8'b0, int_req, 0b0 ,0b0,0b0, ld ,rd,int_en, cnt_en}
+
+	{	 
+	if(int_req & int_en) intr();
+	if(~&cnt &&~(write&adrs==2) && cnt_en) cnt--;
+	if( &cnt &&~(write&adrs==2)) {int_req:=1; cnt_ld();}
+	debug = 32#{0b00000000, int_req, 0b000, 0b00, int_en, cnt_en};
+	}
+
+       func write any{
+         adrs==0:intreg0 :=datai;
+         adrs==1:intreg1 :=datai;
+         adrs==2: { any{
+		      datai[3]: cnt_ld();
+		      datai[2]: cnt_rd();
+		    }	  
+		    int_req:=datai[7];
+		    int_en:=datai[1];
+		    cnt_en:=datai[0];
+	          }
+       }
+
+       func read any{
+         adrs==0:return intreg0;
+         adrs==1:return intreg1;
+	 adrs==2:return {0b00000000, int_req, 0b000, 0b00, int_en, cnt_en};
+       }
+
+	 func cnt_ld    cnt := {intreg1,intreg0};
+	 func cnt_rd   .{intreg1,intreg0} := cnt;
+}

@@ -1,0 +1,404 @@
+// Commet-II  by Naohiko Shimizu, IP ARCH, Inc.
+// Copyright (c) 2015 IP ARCH, Inc. All rights reserved.
+
+#ifndef COMET2_H
+#include "comet2.h"
+#endif
+
+#define ADDA 1
+#define SUBA 2
+#define ADDL 3
+#define SUBL 4
+#define AND  5
+#define OR   6
+#define XOR  7
+#define SLA  8
+#define SRA  9
+#define SLL  10
+#define SRL  11
+
+struct COM_itype {
+    mop[4];
+    sop[4];
+    r1[4];
+    r2[4];
+    };
+
+declare    alu16  {
+    // -- alu16  --
+    input    a[16];
+    input    b[16];
+    input    f[4];
+    output   q[16];
+    output   ov;
+    // -- alu16  --
+    func_in    exe(f,a,b):q;
+}
+
+declare    cla16  {
+    // -- cla16  --
+    input    cin;
+    input    in1[16];
+    input    in2[16];
+    output   q[16];
+    output   ov, co;
+    // -- cla16  --
+    func_in    exe(cin,in1,in2):q;
+}
+
+declare    shift16  {
+    // -- shift16  --
+    input    in[16];
+    input    sa[16];
+    input    f[4];
+    output   q[16];
+    output   ov;
+    func_in    exe(f,in,sa):q;
+}
+
+declare    reg16  {
+    input    regin[16];
+    output   regouta[16];
+    output   regoutb[16];
+    input    n_regin[4];
+    input    n_regouta[4];
+    input    n_regoutb[4];
+    func_in    write(n_regin,regin);
+    func_in    reada(n_regouta):regouta;
+    func_in    readb(n_regoutb):regoutb;
+}
+
+declare    inc16  {
+    // -- inc16  --
+    input    a[16];
+    output    q[16];
+    // -- inc16  --
+    func_in    exe(a):q;
+}
+
+
+
+module    comet2 {
+    // -- cpu  --
+    alu16    alu;
+    reg16    gr;
+    inc16    inc;
+
+
+    reg    pr[16];
+    COM_itype reg opreg;
+    reg    mar[16],mdr[16];
+    reg    regnum[4];
+    reg    qf=0, of=0, sf=0, zf=0;
+    reg    ei0, ei1, ei2;
+    wire   flag[16], flagi[16];
+
+    func_self    set_flag(flagi);
+
+    proc_name    ifetch (pr);
+    proc_name    decode (opreg);
+    proc_name    oaddr (mdr, mar);
+    proc_name    oload (mar);
+    proc_name    exec (mdr, mar);
+    proc_name    wb (regnum, mdr, of);
+    proc_name    wt (regnum, mdr, of);
+    proc_name    push(),pop(),
+                 call(),ret(),svc(),reti(),
+                 int_req(), pushf(), popf();
+
+
+    /* common operations */
+    {
+	flag = {0b1, qf, 0b00000000000, of, sf, zf};
+	ei2:=ei1; ei1:=ei0; ei0:=ext_int;
+    }
+
+    /* func_in start() operation */
+    func    start {
+        ifetch(0x0000);
+    }
+
+    func    set_flag {
+	.{qf,of,sf,zf} := {flagi[14],flagi[2],flagi[1],flagi[0]};
+    }
+
+    /* proc ifetch(pr) operation */
+    proc    ifetch {
+	if(qf&ei2) int_req();
+	else {
+		decode(memory_read(pr));
+		pr:=inc.exe(pr);
+	}
+    }
+
+    /* proc decode(oreg) operation */
+    proc    decode {
+	any {
+		((opreg.mop==0xf)&&(opreg.sop==0)) ||
+		(opreg.mop==0x6) ||
+		(opreg.mop==5) ||
+		(((opreg.mop==1) ||
+		  (opreg.mop==2) ||
+		  (opreg.mop==3) ||
+		  (opreg.mop==4))&&(opreg.sop[2]==0)) ||
+		(((opreg.mop==7) ||
+		  (opreg.mop==8))&&(opreg.sop==0)):
+		{
+			oaddr(memory_read(pr), gr.readb(opreg.r2));
+			pr:=inc.exe(pr);
+		}
+		opreg.mop==0:
+			ifetch(pr);
+		else:
+			exec(gr.reada(opreg.r1), gr.readb(opreg.r2));
+	}
+    }
+
+    proc    oaddr {
+	any {
+		(opreg.mop==0xf) ||
+		(opreg.mop==0x8) ||
+		(opreg.mop==0x7) ||
+		(opreg.mop==0x6) ||
+		(opreg.mop==5):
+		{
+			any {
+			opreg.r2==0:
+				exec(gr.readb(opreg.r1), mdr);
+			else:
+				exec(gr.readb(opreg.r1), alu.exe(ADDL, mar, mdr));
+			}
+		}
+		else:
+			any {
+			opreg.r2==0:
+				oload(mdr);
+			else:
+				oload(alu.exe(ADDL, mar, mdr));
+			}
+	}
+    }
+
+    proc    oload {
+		any {
+			opreg.mop==1: any {
+				opreg.sop==0: {
+					wb(opreg.r1, memory_read(mar), 0);
+				}
+				opreg.sop==1: {
+					memory_write(mar,gr.reada(opreg.r1));
+					ifetch(pr);
+				}
+				opreg.sop==2: { //LAD does not affect to flags.
+					gr.write(opreg.r1, mar);
+					ifetch(pr);
+				}
+			}
+			else:
+				exec(gr.reada(opreg.r1), memory_read(mar));
+		}
+    }
+
+    /* proc exec(mdr,mar) operation */
+    proc    exec {
+	wire	op[8];
+
+	op=if(opreg.mop<5) {opreg.mop, opreg.sop&0x3}
+	   else {opreg.mop, opreg.sop};
+	any {
+		op==0x10: wb(opreg.r1, gr.readb(opreg.r2), 0);
+		op==0x20: wb(opreg.r1, alu.exe(ADDA, mdr, mar), alu.ov);
+		op==0x21: wb(opreg.r1, alu.exe(SUBA, mdr, mar), alu.ov);
+		op==0x22: wb(opreg.r1, alu.exe(ADDL, mdr, mar), alu.ov);
+		op==0x23: wb(opreg.r1, alu.exe(SUBL, mdr, mar), alu.ov);
+		op==0x30: wb(opreg.r1, alu.exe(AND , mdr, mar), 0);
+		op==0x31: wb(opreg.r1, alu.exe(OR  , mdr, mar), 0);
+		op==0x32: wb(opreg.r1, alu.exe(XOR , mdr, mar), 0);
+		op==0x40: wt(opreg.r1, alu.exe(SUBA, mdr, mar), alu.ov);
+		op==0x41: wt(opreg.r1, alu.exe(SUBL, mdr, mar), alu.ov);
+		op==0x50: wb(opreg.r1, alu.exe(SLA , mdr, mar), alu.ov);
+		op==0x51: wb(opreg.r1, alu.exe(SRA , mdr, mar), alu.ov);
+		op==0x52: wb(opreg.r1, alu.exe(SLL , mdr, mar), alu.ov);
+		op==0x53: wb(opreg.r1, alu.exe(SRL , mdr, mar), alu.ov);
+		opreg.mop==6: { // JUMPs
+			wire br;
+			br=(opreg.sop==4)||((opreg.sop==1)&&sf)||
+			   ((opreg.sop==2)&&~zf)||((opreg.sop==3)&&zf)||
+			   ((opreg.sop==5)&&~zf&&~sf)||((opreg.sop==6)&&of);
+			if(br) ifetch(mar);
+			else   ifetch(pr);
+		}
+		op==0x70: push();
+		op==0x71: pop();
+		op==0x72: pushf();
+		op==0x73: popf();
+		op==0x80: call();
+		op==0x81: ret();
+		op==0xf0: svc();
+		op==0xf1: reti();
+		op==0xf2: {hlt(); ifetch(alu.exe(SUBL, pr, 1));}
+
+	}
+    }
+
+    proc    push seq { // PUSH
+				gr.write(15, alu.exe(SUBL, gr.reada(15), 1));
+				memory_write(gr.reada(15), mar);
+				{ifetch(pr); finish();}
+			}
+    proc    pop  seq { // POP
+				gr.write(opreg.r1, memory_read(gr.reada(15)));
+				gr.write(15, alu.exe(ADDL, gr.reada(15), 1));
+				{ifetch(pr); finish();}
+			}
+    proc    pushf seq { // PUSHF
+				gr.write(15, alu.exe(SUBL, gr.reada(15), 1));
+				memory_write(gr.reada(15), flag);
+				{ifetch(pr); finish();}
+			}
+    proc    popf  seq { // POPF
+				set_flag(memory_read(gr.reada(15)));
+				gr.write(15, alu.exe(ADDL, gr.reada(15), 1));
+				{ifetch(pr); finish();}
+			}
+    proc    call  seq { //CALL
+				gr.write(15, alu.exe(SUBL, gr.reada(15), 1));
+				memory_write(gr.reada(15), pr);
+				{ifetch(mar); finish();}
+			}
+
+    proc    ret  seq { //RET
+				pr:=memory_read(gr.reada(15));
+				gr.write(15, alu.exe(ADDL, gr.reada(15), 1));
+				{ifetch(pr); finish();}
+			}
+
+    proc    svc  seq { //SVC
+				gr.write(15, alu.exe(SUBL, gr.reada(15), 1));
+				memory_write(gr.reada(15), flag);
+				gr.write(15, alu.exe(SUBL, gr.reada(15), 1));
+				memory_write(gr.reada(15), pr);
+				mdr := alu.exe(ADDL, gr.reada(14), mar);
+				{ifetch(memory_read(mdr)); finish();}
+			}
+    proc    reti  seq { //RETI
+				{pr:=memory_read(gr.reada(15));
+				gr.write(15, alu.exe(ADDL, gr.regouta, 1));}
+				{set_flag(memory_read(gr.reada(15)));
+				gr.write(15, alu.exe(ADDL, gr.regouta, 1));}
+				{ifetch(pr); finish();}
+			}
+    proc    wb {  // wb stage set register AND flags
+		gr.write(regnum, mdr);
+		zf := (mdr==0x0000);
+		sf := mdr[15];
+		ifetch(pr);
+    }
+    proc    wt {  // wt stage set only flags
+		zf := (mdr==0x0000);
+		of := 0;
+		sf := if(opreg.sop[0]&1) of else of^mdr[15];
+		ifetch(pr);
+    }
+    proc    int_req  seq { //EXT INT
+				gr.write(15, alu.exe(SUBL, gr.reada(15), 1));
+				memory_write(gr.reada(15), flag&0x7fff);
+				gr.write(15, alu.exe(SUBL, gr.reada(15), 1));
+				memory_write(gr.reada(15), pr);
+				{qf:=0; ifetch(memory_read(gr.reada(14))); finish();}
+			}
+
+
+}
+
+module  shift16{
+    wire sta[17], stb[17], stc[17], std[17], ste[17];
+    wire right,arith;
+    right = (f==SRA)||(f==SRL);
+    arith = (f==SRA)||(f==SLA);
+    func exe any {
+	sa[0]: {if(right) sta=if(arith) 17#in else 17'in;
+		else sta=if(arith) {in[14],in[15],in[13:0],0b0} else (17'in)<<1;}
+	~sa[0]: {if(right) sta=17'in<<1; else sta=17'in;}
+	sa[1]: {if(right) stb=if(arith) 17#sta[16:2] else (sta>>2);
+		else stb=if(arith) {sta[13],sta[15],sta[12:0],0b00} else sta<<2;}
+	~sa[1]: stb=sta;
+	sa[2]: {if(right) stc=if(arith) 17#stb[16:4] else (stb>>4);
+		else stc=if(arith) {stb[11],stb[15],stb[10:0],0b0000} else stb<<4;}
+	~sa[2]: stc=stb;
+	sa[3]: {if(right) std=if(arith) 17#stc[16:8] else (stc>>8);
+		else std=if(arith) {stc[7],stc[15],stc[6:0],8'b0} else stc<<8;}
+	~sa[3]: std=stc;
+	sa[4]: {if(right) ste=if(arith) 17#std[16] else (std>>16);
+		else ste=if(arith) {0b0,std[15],15#0b0} else std<<16;}
+	~sa[4]: ste=std;
+	f==SLA: {ov=ste[16]; return ste[15:0];}
+	f==SLL: {ov=ste[16]; return ste[15:0];}
+	f==SRA: {ov=ste[0]; return ste[16:1];}
+	f==SRL: {ov=ste[0]; return ste[16:1];}
+    }
+}
+
+module    alu16 {
+    cla16    cla;
+    shift16  bsft;
+
+    /* func_in exe(f,a,b) operation */
+    func    exe {
+        any {
+            (f==ADDA): {ov=cla.ov; return cla.exe(0b0,a,b); }
+            (f==ADDL): {ov=cla.co; return cla.exe(0b0,a,b); }
+            (f==SUBA): {ov=cla.ov; return cla.exe(0b1,a,~b); }
+            (f==SUBL): {ov=~cla.co;return cla.exe(0b1,a,~b); }
+            (f==AND):  {return a&b; }
+            (f==OR):   {return a|b; }
+            (f==XOR):  {return a^b; }
+            (f==SLA):  {ov=bsft.ov; return bsft.exe(SLA, a, b);}
+            (f==SRA):  {ov=bsft.ov; return bsft.exe(SRA, a, b);}
+            (f==SLL):  {ov=bsft.ov; return bsft.exe(SLL, a, b);}
+            (f==SRL):  {ov=bsft.ov; return bsft.exe(SRL, a, b);}
+        }
+    }
+}
+
+module    cla16 {
+    /* func_in exe(cin,in1,in2) operation */
+    func    exe {
+	wire t1[15], t2[15], t1m, t2m, tp[16], to[2];
+	.{t1m,t1} = in1;
+	.{t2m,t2} = in2;
+	tp = t1 + t2 + 15'(cin);
+	to = tp[15] + t1m + t2m;
+	co = to[1];
+	ov = to[1] ^ tp[15];
+	return {to[0], tp[14:0]};
+    }
+}
+
+module    reg16 {
+    // -- reg16  --
+    mem    gr[16][16];
+
+    /* func_in write(n_regin,regin) operation */
+    func    write {
+		gr[n_regin] := regin;
+    }
+
+    /* func_in reada(n_regouta) operation */
+    func    reada {
+		return gr[n_regouta];
+    }
+
+    /* func_in readb(n_regoutb) operation */
+    func    readb {
+		return gr[n_regoutb];
+    }
+}
+
+
+module    inc16 {
+        /* func_in exe(a) operation */
+    func    exe {
+        return a + 0x0001;
+    }
+}

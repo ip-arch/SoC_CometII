@@ -1,0 +1,82 @@
+#define AWIDTH 12
+#define DWIDTH 16
+declare        altsyncram      interface {
+                param_str clock_enable_input_a ;
+                param_str clock_enable_output_a ;
+                param_str intended_device_family ;
+                param_str lpm_hint ;
+                param_str lpm_type ;
+                param_int numwords_a ;
+                param_str operation_mode ;
+                param_str outdata_aclr_a ;
+                param_str outdata_reg_a ;
+                param_str power_up_uninitialized ;
+                param_str read_during_write_mode_port_a ;
+                param_int widthad_a ;
+                param_int width_a ;
+                param_int width_byteena_a ;
+                param_int widthad_b ;
+                param_int width_b ;
+
+                input address_a[AWIDTH] ;
+                input clock0 ;
+                input data_a[DWIDTH] ;
+                input wren_a ;
+                output q_a [DWIDTH];
+                input aclr0 ;
+                input aclr1 ;
+                input address_b [AWIDTH];
+                input addressstall_a ;
+                input addressstall_b ;
+                input byteena_a ;
+                input byteena_b ;
+                input clock1 ;
+                input clocken0 ;
+                input clocken1 ;
+                input clocken2 ;
+                input clocken3 ;
+                input data_b [DWIDTH];
+                input eccstatus ;
+                output q_b [DWIDTH];
+                input rden_a ;
+                input rden_b ;
+                input wren_b ;
+}
+ 
+declare sys {}
+module sys {
+	altsyncram a(
+                clock_enable_input_a = "BYPASS",
+                clock_enable_output_a = "BYPASS",
+                intended_device_family = "Cyclone III",
+                lpm_hint = "ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=a",
+                lpm_type = "altsyncram",
+                numwords_a = 4096,
+                operation_mode = "SINGLE_PORT",
+                outdata_aclr_a = "NONE",
+                outdata_reg_a = "UNREGISTERED",
+                power_up_uninitialized = "FALSE",
+                read_during_write_mode_port_a = "NEW_DATA_NO_NBE_READ",
+                widthad_a = AWIDTH,
+                width_a = DWIDTH,
+                width_byteena_a = 1,
+                widthad_b = AWIDTH,
+                width_b = DWIDTH);
+                a.aclr0 = (1'b0);
+                a.aclr1 = (1'b0);
+                a.address_b = (AWIDTH'b0);
+                a.addressstall_a = (1'b0);
+                a.addressstall_b = (1'b0);
+                a.byteena_a = (1'b1);
+                a.byteena_b = (1'b1);
+                a.clock1 = (1'b1);
+                a.clocken0 = (1'b1);
+                a.clocken1 = (1'b1);
+                a.clocken2 = (1'b1);
+                a.clocken3 = (1'b1);
+                a.data_b = (DWIDTH'b1);
+                a.rden_a = (1'b1);
+                a.rden_b = (1'b1);
+                a.wren_b = (1'b0);
+
+}

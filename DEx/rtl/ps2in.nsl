@@ -1,0 +1,58 @@
+/*
+PS/2 keyboard input (not for mouse)
+*/
+#include "ps2in.inc"
+module ps2_in {
+
+ reg rxd0[8], rxd1[8], rxdr, rxca, rxcb, rxcc, rxcd, bit_count[4];
+ reg rxreadyr=0;
+
+ proc_name rx (rxdr);
+
+ {
+   if(rxreadyr) rxready();
+   rxca := rxc; rxcb := rxca;
+   rxcc := rxcb; rxcd := rxcc;
+   if(~rxcd & rxcc) rx(rxd);
+ }
+
+
+ function port_read {
+   data = rxd1;
+   if(rxreadyr) rxreadyr := 0b0;
+   }
+ 
+ proc rx {
+  state_name idle, databit, parity, stop;
+  first_state idle;
+
+  state idle if(~rxdr) 
+   {
+     bit_count := 0x0;
+     goto databit;
+     finish;
+   }
+
+  state databit
+   {
+     rxd0 := {rxdr , rxd0[7:1]};
+     bit_count := bit_count + 0x1;
+     if(bit_count == 0x7 ) goto parity;
+     finish;
+   }
+
+  state parity
+   {
+    rxd1 := rxd0;
+    rxreadyr := 0b1;
+    finish;
+    goto stop;
+   }
+
+  state stop
+   {
+    goto idle;
+    finish;
+   }
+ }
+}

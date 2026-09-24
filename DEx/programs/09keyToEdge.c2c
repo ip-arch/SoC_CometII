@@ -1,0 +1,31 @@
+var KEY =0xA000;
+var KEY3=0x0004;
+var HEX =0xA008;
+var count=0;
+var edge[2] = { 1, 1 };
+
+var dec[16] = { 0x40, 0x79, 0x24, 0x30, 0x19, 0x12, 0x02, 0x58,
+                0x00, 0x18, 0x08, 0x03, 0x27, 0x21, 0x06, 0x0e };
+
+proc edgeDetect()
+{
+  edge[1]=edge[0];
+  edge[0]=(*KEY & KEY3)>>2;
+  if(edge[0]==0 && edge[1]==1) return 1;
+  else return 0;
+}
+
+proc segDec(input)
+{
+  if (input>0xF) return dec[input & 0x0F];
+  else           return dec[input] | 0x80;
+}
+
+main()
+{
+  while(1){
+    *HEX=segDec(count);
+    if(edgeDetect()) count++;
+  }
+  halt;
+}
